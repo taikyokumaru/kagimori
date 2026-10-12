@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>鍵守</title>
+<meta name="application-name" content="鍵守">
+<meta name="apple-mobile-web-app-title" content="鍵守">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="ブラウザの中だけで動くワンタイムパスワードアプリ。鍵はこの端末から出ません。">
+<meta name="theme-color" content="#101418">
+<meta name="color-scheme" content="dark">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; media-src 'self' blob:; manifest-src 'self'; worker-src 'self'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="intro" aria-label="鍵守の説明">
+    <p class="intro-brand">鍵守</p>
+    <h2>鍵を、この端末に。</h2>
+    <ol class="steps">
+      <li><span class="step-no">1</span><span>カメラか画像でQRを読む</span></li>
+      <li><span class="step-no">2</span><span>30秒ごとに切り替わるコード</span></li>
+      <li><span class="step-no">3</span><span>引き継ぎQRで別の端末へ</span></li>
+    </ol>
+    <p class="intro-note">アカウント登録もサーバーも使いません。鍵はこのブラウザの中にだけ置かれます。</p>
+  </aside>
+
+  <main class="app" id="app">
+    <header class="appbar">
+      <h1>鍵守</h1>
+      <div class="appbar-actions" id="appbar-actions" hidden>
+        <button type="button" class="icon-btn" id="btn-toggle" aria-pressed="false" aria-label="コードを隠す"></button>
+        <button type="button" class="icon-btn" id="btn-lock" aria-label="いまロックする" hidden></button>
+        <button type="button" class="icon-btn" id="btn-transfer" aria-label="別の端末へ引き継ぐ" hidden></button>
+        <button type="button" class="icon-btn icon-btn-accent" id="btn-add" aria-label="鍵を追加"></button>
+      </div>
+    </header>
+    <div class="brass-rule" aria-hidden="true"></div>
+    <p class="subtitle" id="subtitle">この端末の中だけで、確認コードを出します。</p>
+
+    <section id="lock-view" class="lock" hidden aria-label="ロック中">
+      <div class="empty-mark" aria-hidden="true">
+        <svg viewBox="0 0 64 64" width="64" height="64"><circle cx="32" cy="32" r="29" fill="none" stroke="#e2a84a" stroke-width="3"/><rect x="21" y="30" width="22" height="16" rx="3" fill="#e2a84a"/><path d="M25 30v-4a7 7 0 0 1 14 0v4" fill="none" stroke="#e2a84a" stroke-width="3.2" stroke-linecap="round"/></svg>
+      </div>
+      <h2>ロックされています</h2>
+      <p>パスワードを入れると鍵が開きます。パスワードはこの端末の外に出ません。</p>
+      <form id="lock-form" autocomplete="off">
+        <label class="visually-hidden" for="lock-pw">パスワード</label>
+        <input type="password" id="lock-pw" autocomplete="current-password" placeholder="パスワード" enterkeyhint="go">
+        <p class="error-text" id="lock-err" role="alert" hidden></p>
+        <button type="submit" class="btn btn-primary" id="lock-go">ロックを解除</button>
+      </form>
+      <button type="button" class="btn btn-text" id="lock-forgot">パスワードを忘れた</button>
+    </section>
+
+    <section id="vault-view" hidden>
+      <div class="backup-note" id="backup-note" hidden>
+        <p id="backup-note-text"></p>
+        <div class="btn-row">
+          <button type="button" class="btn btn-secondary btn-small" id="backup-now">バックアップする</button>
+          <button type="button" class="btn btn-text btn-small" id="backup-later">あとで</button>
+        </div>
+      </div>
+      <div class="search" id="search-box" hidden>
+        <input type="search" id="search" placeholder="サービス名・アカウント名で探す" aria-label="サービス名・アカウント名で探す" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+      </div>
+      <ul class="list" id="list" aria-label="保存している鍵"></ul>
+      <p class="no-hit" id="no-hit" hidden>見つかりませんでした。</p>
+
+      <div class="empty" id="empty" hidden>
+        <div class="empty-mark" aria-hidden="true">
+          <svg viewBox="0 0 64 64" width="64" height="64"><circle cx="32" cy="32" r="29" fill="none" stroke="#e2a84a" stroke-width="3"/><circle cx="32" cy="26" r="7" fill="#e2a84a"/><path d="M28.5 31h7l2.5 15h-12z" fill="#e2a84a"/></svg>
+        </div>
+        <h2>まだ鍵がありません</h2>
+        <p>サービスの設定画面に出るQRを読み取ると、30秒ごとに切り替わる確認コードがここに出ます。鍵はこの端末の中だけに保存されます。</p>
+        <button type="button" class="btn btn-primary" id="empty-camera">カメラで読み取る</button>
+        <button type="button" class="btn btn-secondary" id="empty-more">画像・手入力・貼り付け</button>
+        <button type="button" class="btn btn-text" id="empty-sample">サンプルで動作を見る</button>
+      </div>
+
+      <div class="tools">
+        <button type="button" class="btn btn-text" id="btn-settings">設定・バックアップ</button>
+        <button type="button" class="btn btn-text btn-danger-text" id="btn-delete-all" hidden>すべての鍵を削除…</button>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <section class="clock" aria-label="端末の時刻">
+        <p class="clock-label">この端末の時刻</p>
+        <p class="clock-time mono" id="clock" aria-live="off">--</p>
+        <p class="clock-warn">端末の時計がずれていると、サービス側でコードが拒否されます。日付と時刻は「自動設定」にしてください。</p>
+        <p class="clock-skew" id="clock-skew" role="status" hidden></p>
+      </section>
+      <section class="notes" aria-label="データの扱い">
+        <ul>
+          <li>データはこのブラウザの中だけに保存されます。サーバーには送らず、他の端末やブラウザとも同期しません。</li>
+          <li>Safari とホーム画面に追加したアプリは、別々の保存場所になることがあります。どちらに鍵を入れたか覚えておいてください。</li>
+          <li>「設定・バックアップ」でパスワード暗号化を選ぶと、保存データが AES-GCM で暗号化されます。パスワードを忘れると取り出せません。選ばない場合は平文のまま保存されます。</li>
+          <li>電波があるときに一度開けば、以後は電波がなくても保存済みの鍵のコードを出せます。</li>
+          <li>ブラウザのデータを消すと鍵も消えます。消す前に「引き継ぎ」やバックアップで別の端末やファイルへ移し、各サービスのリカバリコードも控えてください。</li>
+        </ul>
+        <p class="kbd-hint">キーボード: <kbd>/</kbd> 検索　<kbd>n</kbd> 追加　<kbd>h</kbd> 表示切替　<kbd>l</kbd> ロック　画像のドラッグ＆ドロップと貼り付け（Ctrl/⌘+V）でもQRを読み込めます。</p>
+      </section>
+    </footer>
+  </main>
+</div>
+
+<noscript><p class="noscript">鍵守はJavaScriptが必要です。ブラウザの設定でJavaScriptを有効にしてください。</p></noscript>
+
+<div id="toasts" class="toasts" aria-live="polite" aria-atomic="false"></div>
+<div id="sheet-root"></div>
+<input type="file" id="file-input" accept="image/*" class="visually-hidden" tabindex="-1" aria-hidden="true">
+<input type="file" id="backup-input" accept="application/json,.json" class="visually-hidden" tabindex="-1" aria-hidden="true">
+<div class="drop-hint" id="drop-hint" hidden aria-hidden="true"><p>ここにQRの画像を落とすと読み取ります</p></div>
+
+<script type="module" src="/app.js"></script>
+</body>
+</html>
